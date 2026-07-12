@@ -5,6 +5,9 @@ build/
 *.elf
 *.map
 
+# Secrets — WiFi credentials + Claude OAuth token (see claude_meter/secrets.example.h)
+claude_meter/secrets.h
+
 # VSCode
 .vscode/*
 !.vscode/c_cpp_properties.json

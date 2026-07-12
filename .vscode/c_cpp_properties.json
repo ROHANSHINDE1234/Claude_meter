@@ -18,6 +18,7 @@
                 "ARDUINO_ARCH_ESP32",
                 "ESP32"
             ],
+            "compileCommands": "${workspaceFolder}/claude_meter/build/compile_commands.json",
             "compilerPath": "C:/Users/SAKSHI/AppData/Local/Arduino15/packages/esp32/tools/esp-x32/2601/bin/xtensa-esp32-elf-gcc.exe",
             "cStandard": "c17",
             "cppStandard": "gnu++17",
