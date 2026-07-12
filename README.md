@@ -2,7 +2,7 @@
 
 **Project:** ESP32 + OLED desk display showing live Claude Code usage
 **Inspired by:** [Clawdmeter](https://github.com/HermannBjorgvin/Clawdmeter) — adapted to run on different, simpler hardware
-**Purpose of this document:** Handoff reference so a new conversation (or you, later) can pick this project up without re-explaining everything from scratch.
+**Purpose of this document:** Handoff reference so a new conversation (or you, later) can pick this project up without re-explaining everything from scratch. See also [CLAUDE.md](CLAUDE.md) — the condensed operating rules Claude Code loads automatically in this repo (commands, non-negotiable architecture decisions); this README remains the full narrative history and reference.
 
 ---
 
@@ -52,6 +52,8 @@ Following the same philosophy used on the separate STM32 firmware project: **no 
 
 ```
 Claude_meter/
+  CLAUDE.md                 <- guidance auto-loaded by Claude Code (commands, non-negotiable decisions)
+  .gitignore
   .vscode/
     c_cpp_properties.json   <- IntelliSense config (cosmetic only, see section 4)
   oled_test/
