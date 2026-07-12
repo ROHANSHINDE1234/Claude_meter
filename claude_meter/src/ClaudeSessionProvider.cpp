@@ -1,4 +1,4 @@
-#include "ClaudeSessionProvider.h"
+#include "../include/ClaudeSessionProvider.h"
 
 #include <HTTPClient.h>
 #include <WiFi.h>

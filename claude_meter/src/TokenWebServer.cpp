@@ -1,6 +1,6 @@
-#include "TokenWebServer.h"
+#include "../include/TokenWebServer.h"
 
-#include "secrets.h"
+#include "../include/secrets.h"
 
 void TokenWebServer::begin() {
   server_.on("/", HTTP_GET, [this]() { handleRoot(); });
@@ -35,5 +35,13 @@ void TokenWebServer::handleUpdate() {
   }
 
   tokenStore_.set(newToken);
-  server_.send(200, "text/plain", "Token updated. It takes effect on the next poll or button press.");
+  usageManager_.forceRefresh();  // verify immediately instead of waiting for the next scheduled poll
+
+  if (usageManager_.current().valid) {
+    server_.send(200, "text/plain", "Token updated and verified - usage data refreshed.");
+  } else {
+    server_.send(200, "text/plain",
+                  "Token saved, but the verification fetch failed. Double-check the token value; "
+                  "the device will keep retrying automatically.");
+  }
 }

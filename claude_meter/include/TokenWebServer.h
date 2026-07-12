@@ -3,6 +3,7 @@
 #include <WebServer.h>
 
 #include "TokenStore.h"
+#include "TokenUsageManager.h"
 
 // Serves a small password-protected page for updating the Claude access
 // token over the local network, without a USB reflash. Reachable only by
@@ -11,7 +12,8 @@
 // no TLS). Don't reuse WEB_UI_PASSWORD anywhere sensitive.
 class TokenWebServer {
  public:
-  explicit TokenWebServer(TokenStore &tokenStore) : tokenStore_(tokenStore) {}
+  TokenWebServer(TokenStore &tokenStore, TokenUsageManager &usageManager)
+      : tokenStore_(tokenStore), usageManager_(usageManager) {}
 
   void begin();
   void handleClient() { server_.handleClient(); }
@@ -22,4 +24,5 @@ class TokenWebServer {
 
   WebServer server_{80};
   TokenStore &tokenStore_;
+  TokenUsageManager &usageManager_;
 };

@@ -1,8 +1,8 @@
-#include "TokenUsageManager.h"
+#include "../include/TokenUsageManager.h"
 
 #include <Arduino.h>
 
-#include "hw_config.h"
+#include "../include/hw_config.h"
 
 void TokenUsageManager::begin() {
   forceRefresh();
