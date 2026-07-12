@@ -1,0 +1,28 @@
+{
+    "configurations": [
+        {
+            "name": "ESP32",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "C:/Users/SAKSHI/AppData/Local/Arduino15/packages/esp32/hardware/esp32/3.3.10/cores/esp32/**",
+                "C:/Users/SAKSHI/AppData/Local/Arduino15/packages/esp32/hardware/esp32/3.3.10/libraries/**",
+                "C:/Users/SAKSHI/AppData/Local/Arduino15/packages/esp32/hardware/esp32/3.3.10/variants/esp32/**",
+                "C:/Users/SAKSHI/AppData/Local/Arduino15/packages/esp32/tools/esp32-libs/**",
+                "C:/Users/SAKSHI/Documents/Arduino/libraries/Adafruit_GFX_Library/**",
+                "C:/Users/SAKSHI/Documents/Arduino/libraries/Adafruit_SH110X/**",
+                "C:/Users/SAKSHI/Documents/Arduino/libraries/Adafruit_BusIO/**",
+                "C:/Users/SAKSHI/Documents/Arduino/libraries/Adafruit_SSD1306/**"
+            ],
+            "defines": [
+                "ARDUINO=10812",
+                "ARDUINO_ARCH_ESP32",
+                "ESP32"
+            ],
+            "compilerPath": "C:/Users/SAKSHI/AppData/Local/Arduino15/packages/esp32/tools/esp-x32/2601/bin/xtensa-esp32-elf-gcc.exe",
+            "cStandard": "c17",
+            "cppStandard": "gnu++17",
+            "intelliSenseMode": "windows-gcc-x64"
+        }
+    ],
+    "version": 4
+}

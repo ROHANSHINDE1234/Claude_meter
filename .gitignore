@@ -1,0 +1,20 @@
+# Arduino build artifacts
+build/
+*.hex
+*.bin
+*.elf
+*.map
+
+# VSCode
+.vscode/*
+!.vscode/c_cpp_properties.json
+!.vscode/settings.json
+!.vscode/arduino.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor swap/backup files
+*~
+*.swp
