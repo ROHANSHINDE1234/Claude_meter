@@ -63,15 +63,17 @@ Claude_meter/
   claude_meter/                 <- the real product: modular token-usage display
     claude_meter.ino            <- orchestration only (setup/loop, WiFi connect, NTP sync, button)
     hw_config.h                 <- pin numbers / timing constants
-    secrets.h                   <- gitignored — real WiFi + OAuth credentials
+    secrets.h                   <- gitignored — real WiFi + OAuth credentials + web UI password
     secrets.example.h           <- tracked template for secrets.h
     UsageData.h                 <- fixed struct the rest of the pipeline passes around
     IUsageProvider.h            <- "give me a fresh usage reading" interface
     ClaudeSessionProvider.*     <- concrete provider: WiFi + HTTPS call to Anthropic, reads rate-limit headers
+    TokenStore.*                <- persists the access token in flash (NVS); seeded from secrets.h, updatable at runtime
+    TokenWebServer.*            <- local password-gated page (http://<esp32-ip>/) for pasting a fresh token — see section 3.4
     TokenUsageManager.*         <- owns current usage state + staleness tracking
     IScreen.h                   <- one render() method, for future screens (WiFi status, battery, ...)
     TokenUsageScreen.*          <- renders TokenUsageManager's state to the OLED
-    DisplayManager.*            <- owns the OLED object + active screen
+    DisplayManager.*            <- owns the OLED object + active screen; also draws the boot-time QR code (section 3.4)
 ```
 
 ---
@@ -109,6 +111,25 @@ Originally planned as a "force WiFi reconnect" button, then briefly a "send `REF
 
 Both are extremely common on visually identical 0.96"/1.3" blue OLED boards, but they are **not** software-compatible. This board is confirmed SH1106 (see section 1.1) and must use the `Adafruit_SH110X` library and `Adafruit_SH1106G` class — any future display code must keep using this, not `Adafruit_SSD1306`.
 
+### 3.4 Updating the access token without a reflash: local web UI, not auto-refresh or a relay
+
+Once the device moves from home WiFi to an office mobile hotspot, `secrets.h` + USB reflash every time the token expires stops being workable — the ESP32 won't be sitting next to a laptop. Three alternatives were considered:
+
+| Option | Why it was set aside / adopted |
+|---|---|
+| ESP32 auto-refreshes its own OAuth token | Rejected outright, even before this discussion — see section 3.1's implication and `token-usage-feature-decision.md` §4: it can race the Claude Code CLI's own refresh and lock you out of `claude login` on your actual machine. |
+| Console API key instead of OAuth session token | Rejected — solves the expiry problem but changes what's displayed. An API key authenticates via `x-api-key`, not the OAuth session, so the rate-limit headers it returns reflect the **API tier's** request/token-per-minute usage, not "% of your Pro/Max 5-hour window." For light polling traffic that number sits near 0% — not the metric this project exists to show. Also requires loading paid credits. |
+| A relay (laptop or small always-on device pushes a fresh token to a cloud store; ESP32 polls it) | Solves the problem completely, but needs *something* to stay logged into Claude Code and online continuously to keep re-minting the token. No always-on device available (a Raspberry Pi or similar would work, but that's new hardware/infra, not adopted for now). |
+| **Local web UI on the ESP32** ✅ **chosen** | The token now lives in flash (NVS, via `TokenStore`) instead of only the `secrets.h` macro. `TokenWebServer` serves a small password-gated page at `http://<esp32-ip>/` where a fresh token can be pasted in ~10 seconds — no USB, no recompile, no reflash. |
+
+**Finding the page — QR code, not typing the IP.** After WiFi connects, the OLED shows a QR code encoding `http://<esp32-ip>/` (via `DisplayManager::showQRCode`, using ESP-IDF's bundled `qrcode` component — see the note below on why that specific library) — scan it with a phone camera to open the page directly, no typing a dotted-quad IP by hand. This screen isn't on a fixed timer: it stays up until the **first successful usage fetch** (`claude_meter.ino`'s `waitingForFirstFetch` flag, gated on `usageManager.current().valid`), so if the seeded token is bad or expired, the QR just keeps showing — which is exactly when you need to scan it.
+
+**Why ESP-IDF's `qrcode` component and not an installed library:** the ESP32 core bundles its own QR code generator (`espressif__qrcode`, header `qrcode.h`) as part of the platform's system includes. A separately-installed Arduino library with the same header name (`QRCode` by ricmoo) was tried first and silently lost the header collision — the ESP-IDF one wins regardless of what's in `Documents/Arduino/libraries/`. Once that was understood, the ESP-IDF component turned out to be the better fit anyway: it auto-selects the smallest QR version that fits the given text, instead of requiring a hardcoded version guess.
+
+**How the workflow actually looks day to day:** the office PC already runs Claude Code under the same account, so `%USERPROFILE%\.claude\.credentials.json` there has its own actively-refreshing token — no admin rights needed, it's just a file. The remaining manual step is getting that token text onto whatever device can reach the ESP32's page: if the ESP32 is on a phone's hotspot, the phone is on the same local network as the ESP32 (the office PC, on the office's own WiFi, is not) — so copy the token from the office PC to the phone (clipboard sync, or a private note to yourself) and paste it into the page from there.
+
+**Security note:** `TokenWebServer`'s password check is a shared-secret deterrent for a home/hotspot-only device, not real authentication — plain HTTP, no TLS, no rate limiting. Don't reuse a password that matters, and don't expose this port beyond a trusted local network.
+
 ---
 
 ## 4. Progress Log / Status
@@ -135,6 +156,7 @@ Both are extremely common on visually identical 0.96"/1.3" blue OLED boards, but
 - [x] Added Serial diagnostics (WiFi connect status, HTTP response code, raw rate-limit header values) after the first hardware test came back silent
 - [x] **First hardware test of `claude_meter`** — surfaced two real bugs via Serial: the hardcoded model id (`claude-3-5-haiku-20241022`) was retired 2026-02-19 (→ 404), and `TokenUsageManager::tick()` was retrying on every `loop()` iteration instead of pacing to `POLL_INTERVAL_MS` when fetches kept failing. Fixed both (model id → `claude-haiku-4-5`; tick() now paces retries regardless of fetch outcome).
 - [x] **`claude_meter` confirmed working end-to-end on the actual board** — WiFi connects, the live Anthropic header-scraping call returns 200 with real rate-limit headers, NTP sync succeeds, and the OLED shows correct live data (`Claude usage / 37% / Resets in 2h 09m` — see `Final_Proper_image.jpg`). This validates the rate-limit header names from the decision doc are correct as documented.
+- [x] Designed and built the token-update-without-reflash feature (section 3.4): `TokenStore` (NVS-backed persistence, seeded from `secrets.h` on first boot) + `TokenWebServer` (password-gated page at `http://<esp32-ip>/`), OLED shows the IP for 3s after WiFi connects, `claude_meter` compiles clean at 85% flash
 
 ### In progress 🔧
 
@@ -142,8 +164,10 @@ Both are extremely common on visually identical 0.96"/1.3" blue OLED boards, but
 
 ### Not yet started
 
+- [ ] **Hardware test of the token-update web UI** — confirm the page loads at the boot-displayed IP from a phone on the same hotspot, and that a pasted token actually persists across reboots and gets used on the next fetch
 - [ ] Test the push button's force-refresh in isolation (code exists in `claude_meter.ino`, not yet specifically exercised)
-- [ ] Full integration test: extended run to see how the manual-token-refresh cadence (Approach A) feels in practice day-to-day, and observe the staleness indicator behavior when a fetch fails
+- [ ] Full integration test: extended run to see how the manual-token-refresh cadence feels in practice day-to-day (now via the web UI instead of reflashing), and observe the staleness indicator behavior when a fetch fails
+- [ ] Test on office mobile hotspot specifically — confirm WiFi reconnect behavior if the hotspot drops (phone screen lock / battery saver killing the hotspot is a known real-world risk, not a code issue)
 - [ ] Migration from breadboard to a permanent build (perfboard or PCB)
 
 ---
@@ -179,7 +203,9 @@ Substitute `claude_meter` for `oled_test` (or vice versa) depending which sketch
 
 ## 7. Next Steps (in likely order)
 
-1. Test the push button's force-refresh in isolation
-2. Live with it long enough to judge whether the manual token re-paste cadence (Approach A) is actually annoying — only then consider auto-refresh (Approach B), as its own deliberate design discussion
-3. Finish clearing the IntelliSense squiggles (cosmetic, low priority — can be skipped if it becomes a time sink)
-4. Once the breadboard prototype survives normal daily use, plan the move to a permanent build
+1. Flash the updated `claude_meter` and confirm the token-update web UI actually works: page loads from a phone at the boot-displayed IP, a pasted token persists and takes effect
+2. Test the push button's force-refresh in isolation
+3. Try it on the office mobile hotspot and confirm reconnect behavior holds up
+4. Live with it long enough to judge whether the manual token re-paste cadence (now via the web UI) is actually low-friction enough day to day
+5. Finish clearing the IntelliSense squiggles (cosmetic, low priority — can be skipped if it becomes a time sink)
+6. Once the breadboard prototype survives normal daily use, plan the move to a permanent build

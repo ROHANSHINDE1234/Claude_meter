@@ -4,8 +4,6 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 
-#include "secrets.h"
-
 namespace {
 
 constexpr const char *kEndpoint = "https://api.anthropic.com/v1/messages";
@@ -51,7 +49,7 @@ bool ClaudeSessionProvider::fetch(UsageData &out) {
   https.addHeader("content-type", "application/json");
   https.addHeader("anthropic-version", "2023-06-01");
   https.addHeader("anthropic-beta", "oauth-2025-04-20");
-  https.addHeader("authorization", String("Bearer ") + CLAUDE_ACCESS_TOKEN);
+  https.addHeader("authorization", String("Bearer ") + tokenStore_.get());
   https.addHeader("User-Agent", "claude-cli/1.0 (external, cli)");
 
   String body =

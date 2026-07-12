@@ -2,17 +2,27 @@
 
 #include "ClaudeSessionProvider.h"
 #include "DisplayManager.h"
+#include "TokenStore.h"
 #include "TokenUsageManager.h"
 #include "TokenUsageScreen.h"
+#include "TokenWebServer.h"
 #include "hw_config.h"
 #include "secrets.h"
 
-ClaudeSessionProvider usageProvider;
+TokenStore tokenStore;
+ClaudeSessionProvider usageProvider(tokenStore);
 TokenUsageManager usageManager(usageProvider);
 DisplayManager displayManager;
 TokenUsageScreen usageScreen(usageManager);
+TokenWebServer tokenWebServer(tokenStore);
 
 bool lastButtonState = HIGH;
+
+// True from boot until the first successful usage fetch. While true, the
+// QR code for the token-update page stays on screen (full space, no timer)
+// instead of the usage screen — there's nothing useful to show yet if the
+// seeded token isn't valid, and this is exactly when scanning it matters.
+bool waitingForFirstFetch = true;
 
 void connectWiFi() {
   WiFi.mode(WIFI_STA);
@@ -39,7 +49,16 @@ void setup() {
   displayManager.begin();
   displayManager.setScreen(&usageScreen);
 
+  // Seeds NVS from secrets.h on first boot only; afterwards the stored value
+  // (possibly updated via the web UI) takes precedence.
+  tokenStore.begin(CLAUDE_ACCESS_TOKEN);
+
   connectWiFi();
+  tokenWebServer.begin();
+
+  String tokenPageUrl = String("http://") + WiFi.localIP().toString() + "/";
+  displayManager.showQRCode(tokenPageUrl, "Scan to update token");
+
   usageManager.begin();
 }
 
@@ -53,5 +72,14 @@ void loop() {
   lastButtonState = buttonState;
 
   usageManager.tick(now);
-  displayManager.tick(now);
+
+  if (waitingForFirstFetch) {
+    if (usageManager.current().valid) {
+      waitingForFirstFetch = false;  // token works — hand the screen to the usage display
+    }
+  } else {
+    displayManager.tick(now);
+  }
+
+  tokenWebServer.handleClient();
 }
