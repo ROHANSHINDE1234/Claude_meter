@@ -21,6 +21,16 @@ void formatCountdown(uint32_t resetUnix, char *buf, size_t bufLen) {
   snprintf(buf, bufLen, "%dh %02dm", hours, minutes);
 }
 
+// Small pixel-art smiley — the font has no emoji glyphs, so this is hand-drawn
+// with basic GFX primitives rather than text.
+void drawSmiley(Adafruit_SH1106G &display, int cx, int cy, int r) {
+  display.drawCircle(cx, cy, r, SH110X_WHITE);
+  display.fillCircle(cx - 2, cy - 2, 1, SH110X_WHITE);  // left eye
+  display.fillCircle(cx + 2, cy - 2, 1, SH110X_WHITE);  // right eye
+  display.drawLine(cx - 3, cy + 2, cx, cy + 3, SH110X_WHITE);
+  display.drawLine(cx, cy + 3, cx + 3, cy + 2, SH110X_WHITE);
+}
+
 }  // namespace
 
 void TokenUsageScreen::render(Adafruit_SH1106G &display) {
@@ -42,17 +52,51 @@ void TokenUsageScreen::render(Adafruit_SH1106G &display) {
   char countdown[16];
   formatCountdown(data.fiveHourResetUnix, countdown, sizeof(countdown));
 
-  display.println("Claude usage");
-  display.setTextSize(2);
-  display.setCursor(0, 16);
-  display.printf("%d%%\n", static_cast<int>(data.fiveHourUtilization * 100.0f + 0.5f));
+  // Layout uses the same 1px gap between every row (header/percentage/bar/
+  // label/countdown), rather than letting whatever space text size changes
+  // happened to leave behind (which read as inconsistent spacing).
+  constexpr int kGap = 1;
+  int y = 0;
 
   display.setTextSize(1);
-  display.setCursor(0, 40);
-  display.printf("Resets in %s\n", countdown);
+  display.setCursor(0, y);
+  display.print("Claude usage");  // h=8
+  y += 8 + kGap;
+
+  display.setTextSize(2);
+  display.setCursor(0, y);  // h=16
+  display.printf("%d%%", static_cast<int>(data.fiveHourUtilization * 100.0f + 0.5f));
+  drawSmiley(display, 92, y + 8, 6);
+  y += 16 + kGap;
+
+  // Horizontal usage bar, like the one on claude.ai — outlined rectangle is
+  // the 0-100% range, the filled portion is how much of it is used. 5px
+  // (not 6) so the six rows plus five uniform gaps fit the 64px panel
+  // without clipping the last (STALE) row.
+  constexpr int kBarHeight = 5;
+  display.drawRect(0, y, 128, kBarHeight, SH110X_WHITE);
+  int innerWidth = 128 - 2;
+  int filled = static_cast<int>(data.fiveHourUtilization * innerWidth + 0.5f);
+  if (filled < 0) filled = 0;
+  if (filled > innerWidth) filled = innerWidth;
+  if (filled > 0) {
+    display.fillRect(1, y + 1, filled, kBarHeight - 2, SH110X_WHITE);
+  }
+  y += kBarHeight + kGap;
+
+  display.setTextSize(1);
+  display.setCursor(0, y);
+  display.print("Resets in:");  // h=8
+  y += 8 + kGap;
+
+  display.setTextSize(2);
+  display.setCursor(0, y);  // h=16
+  display.print(countdown);
+  y += 16;  // no trailing gap — STALE (if shown) sits right after, still 63px total
 
   if (manager_.isStale(now)) {
-    display.setCursor(0, 56);
+    display.setTextSize(1);
+    display.setCursor(0, y);
     display.print("STALE - press btn");
   }
 
