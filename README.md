@@ -189,6 +189,8 @@ Two smaller modules exist specifically because of an earlier restructure pass, a
 - [x] Restructured `claude_meter/` into `include/` (headers) + `src/` (implementation) — see section 3.5 for the Arduino build-system rules this uncovered. Extracted `WiFiConnection` (WiFi connect + NTP) and `QRCodeScreen` (implements `IScreen`) out of `claude_meter.ino` / `DisplayManager`, both of which had drifted from their stated single responsibility
 - [x] Wired `TokenWebServer` to `TokenUsageManager` so submitting a token triggers an immediate verification fetch (with pass/fail feedback on the page), instead of waiting up to 5 minutes or requiring a button press
 - [x] `claude_meter` compiles clean at 86% flash / 15% RAM through all of the above
+- [x] **Ran the actual office scenario end to end**: booted on the office mobile hotspot with an expired token, QR showed and stayed up, scanned from a phone on that hotspot, pulled a fresh token from the office PC's `.claude/.credentials.json`, submitted it, usage screen appeared. First attempt failed verification — traced to copying the token via Google Lens OCR, which misread a character in the token's high-entropy charset (`l`/`1`/`I`, `O`/`0`, `-`/`_`); a retry moving the text via Gmail (a real copy, not OCR) worked immediately
+- [x] Hardened `TokenWebServer` against this class of bug: strips *all* whitespace from the submitted token (not just leading/trailing, to catch mobile copy-paste hops introducing a stray space/newline) and disables the textarea's `autocapitalize`/`autocorrect`/`spellcheck`, which some mobile browsers apply even to pasted text
 
 ### In progress 🔧
 
@@ -196,7 +198,6 @@ Two smaller modules exist specifically because of an earlier restructure pass, a
 
 ### Not yet started
 
-- [ ] **The actual office scenario**: boot on office mobile hotspot with an overnight-expired token, confirm the QR shows and stays up, scan it from a phone on the same hotspot, pull a fresh token from the office PC's `.claude/.credentials.json`, submit it, and confirm the usage screen appears immediately (verifies the section 3.4 workflow end-to-end, not just the pieces individually)
 - [ ] Confirm WiFi reconnect behavior if the office hotspot drops mid-run (phone screen lock / battery saver killing the hotspot is a known real-world risk, not a code issue)
 - [ ] Test the push button's force-refresh in isolation (code exists in `claude_meter.ino`, not yet specifically exercised)
 - [ ] Full integration test: extended run to see how the token-refresh cadence feels in practice day-to-day, and observe the staleness indicator behavior when a fetch fails
@@ -218,6 +219,7 @@ Two smaller modules exist specifically because of an earlier restructure pass, a
 | `claude_meter` hammering the Anthropic API on every `loop()` iteration instead of every 5 minutes | `TokenUsageManager::tick()` only paced retries after a *successful* fetch (`!everFetched_ \|\| ...`) — while every fetch was failing (see row above), it refired constantly | `tick()` now checks the poll interval unconditionally, since `forceRefresh()` stamps `lastFetchMs_` on every attempt, success or failure |
 | New `.cpp` file in a subfolder compiles with zero errors but its functions are "undefined reference" at link time | Arduino's sketch build system only auto-compiles a subfolder literally named `src/` — any other name (tested empirically: an arbitrary `plainsubdir/`) is silently skipped, no warning | Put implementation files in `src/` specifically (nested subfolders inside `src/` are fine); see section 3.5 |
 | `fatal error: Foo.h: No such file or directory` after adding a project header | Bare `#include "Foo.h"` only resolves within the *same* folder for a sketch — there's no single flat include path spanning `include/` + `src/` the way library `src/` folders sometimes get | From `claude_meter.ino`: `#include "include/Foo.h"`. From a `.cpp` in `src/`: `#include "../include/Foo.h"`. Headers inside `include/` can bare-include each other freely (see section 3.5) |
+| Token-update page said "verification fetch failed" even with a freshly-refreshed token | The token had been copied off the office PC's screen via **Google Lens OCR**, which misread a character in the token's high-entropy charset (`l`/`1`/`I`, `O`/`0`, `-`/`_`) — produced a wrong-but-plausible token that fails auth with no visible typo | Copy the token as real text, never via OCR/photo: select-and-copy from `.credentials.json` directly, then move it to the phone via a digital channel (email to self, clipboard sync, messaging note). Also hardened `TokenWebServer` to strip all internal whitespace and disable textarea autocapitalize/autocorrect/spellcheck, in case a copy hop introduces a stray character |
 
 ---
 
@@ -237,9 +239,8 @@ Substitute `claude_meter` for `oled_test` (or vice versa) depending which sketch
 
 ## 7. Next Steps (in likely order)
 
-1. **Take it to the office tomorrow and run the real scenario end to end**: boot on the office hotspot with an expired token → confirm the QR shows and stays up → scan from a phone on the same hotspot → grab a fresh token from the office PC's `.claude/.credentials.json` → submit it → confirm the usage screen appears immediately (this is the specific flow section 3.4 describes, only piece-tested so far, not run start to finish in the real environment)
-2. Confirm WiFi reconnect behavior holds up if the office hotspot drops (phone screen lock / battery saver)
-3. Test the push button's force-refresh in isolation
-4. Live with it long enough to judge whether the token-refresh cadence is actually low-friction enough day to day
-5. Finish clearing the IntelliSense squiggles (cosmetic, low priority — can be skipped if it becomes a time sink)
-6. Once the breadboard prototype survives normal daily use, plan the move to a permanent build
+1. Confirm WiFi reconnect behavior holds up if the office hotspot drops (phone screen lock / battery saver)
+2. Test the push button's force-refresh in isolation
+3. Live with it long enough to judge whether the token-refresh cadence is actually low-friction enough day to day
+4. Finish clearing the IntelliSense squiggles (cosmetic, low priority — can be skipped if it becomes a time sink)
+5. Once the breadboard prototype survives normal daily use, plan the move to a permanent build

@@ -15,7 +15,8 @@ void TokenWebServer::handleRoot() {
       "<form method='POST' action='/update'>"
       "Password: <input type='password' name='password'><br><br>"
       "New token:<br>"
-      "<textarea name='token' rows='4' cols='50'></textarea><br><br>"
+      "<textarea name='token' rows='4' cols='50' autocapitalize='off' autocorrect='off' "
+      "spellcheck='false'></textarea><br><br>"
       "<input type='submit' value='Update'>"
       "</form></body></html>";
   server_.send(200, "text/html", page);
@@ -27,8 +28,20 @@ void TokenWebServer::handleUpdate() {
     return;
   }
 
-  String newToken = server_.arg("token");
-  newToken.trim();
+  // Strip ALL whitespace, not just leading/trailing — a real access token
+  // never legitimately contains any, but mobile copy-paste (PC -> notes app
+  // -> phone -> this form) can silently introduce a stray internal space or
+  // newline that breaks the Authorization header without looking wrong.
+  String rawToken = server_.arg("token");
+  String newToken;
+  newToken.reserve(rawToken.length());
+  for (size_t i = 0; i < rawToken.length(); i++) {
+    char c = rawToken.charAt(i);
+    if (!isspace(static_cast<unsigned char>(c))) {
+      newToken += c;
+    }
+  }
+
   if (newToken.length() == 0) {
     server_.send(400, "text/plain", "Empty token");
     return;
