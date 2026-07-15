@@ -163,6 +163,8 @@ Two smaller modules exist specifically because of an earlier restructure pass, a
 
 **Core project status: complete.** The device does what it originally set out to do — show live Claude Code usage on a desk display — validated on real hardware both at home (direct WiFi) and at the office (mobile hotspot, expired-token recovery via QR + web UI, manual force-refresh via button). Everything below "Not yet started" is polish/robustness, not core functionality.
 
+![Final working setup — ESP32 + SH1106 OLED on breadboard, showing live Claude usage (26%, progress bar, smiley, reset countdown)](Final_working_image.jpg)
+
 ### Completed ✅
 
 - [x] Identified exact hardware (ESP32-WROOM-32 DevKit, SH1106 1.3" OLED)
@@ -184,7 +186,7 @@ Two smaller modules exist specifically because of an earlier restructure pass, a
 - [x] Filled in real values in `claude_meter/include/secrets.h` (WiFi credentials + Claude OAuth `accessToken` from `.claude/.credentials.json`) — gitignored, confirmed via `git check-ignore`
 - [x] Added Serial diagnostics (WiFi connect status, HTTP response code, raw rate-limit header values) after the first hardware test came back silent
 - [x] **First hardware test of `claude_meter`** — surfaced two real bugs via Serial: the hardcoded model id (`claude-3-5-haiku-20241022`) was retired 2026-02-19 (→ 404), and `TokenUsageManager::tick()` was retrying on every `loop()` iteration instead of pacing to `POLL_INTERVAL_MS` when fetches kept failing. Fixed both (model id → `claude-haiku-4-5`; tick() now paces retries regardless of fetch outcome).
-- [x] **`claude_meter` confirmed working end-to-end on the actual board** — WiFi connects, the live Anthropic header-scraping call returns 200 with real rate-limit headers, NTP sync succeeds, and the OLED shows correct live data (`Claude usage / 37% / Resets in 2h 09m` — see `Final_Proper_image.jpg`). This validates the rate-limit header names from the decision doc are correct as documented.
+- [x] **`claude_meter` confirmed working end-to-end on the actual board** — WiFi connects, the live Anthropic header-scraping call returns 200 with real rate-limit headers, NTP sync succeeds, and the OLED shows correct live data (`Claude usage / 37% / Resets in 2h 09m`). This validates the rate-limit header names from the decision doc are correct as documented.
 - [x] Designed and built the token-update-without-reflash feature (section 3.4): `TokenStore` (NVS-backed persistence, seeded from `secrets.h` on first boot) + `TokenWebServer` (password-gated page at `http://<esp32-ip>/`)
 - [x] Added the boot-time QR code (`QRCodeScreen`, using ESP-IDF's bundled `qrcode` component) linking straight to the token-update page — persists until the first successful fetch, not a fixed timer
 - [x] **QR code + token-update web UI confirmed working end-to-end on hardware at home** — scanned the QR, opened the page, pasted a token, usage data displayed correctly on the OLED
