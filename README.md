@@ -161,6 +161,8 @@ Two smaller modules exist specifically because of an earlier restructure pass, a
 
 ## 4. Progress Log / Status
 
+**Core project status: complete.** The device does what it originally set out to do — show live Claude Code usage on a desk display — validated on real hardware both at home (direct WiFi) and at the office (mobile hotspot, expired-token recovery via QR + web UI, manual force-refresh via button). Everything below "Not yet started" is polish/robustness, not core functionality.
+
 ### Completed ✅
 
 - [x] Identified exact hardware (ESP32-WROOM-32 DevKit, SH1106 1.3" OLED)
@@ -191,16 +193,16 @@ Two smaller modules exist specifically because of an earlier restructure pass, a
 - [x] `claude_meter` compiles clean at 86% flash / 15% RAM through all of the above
 - [x] **Ran the actual office scenario end to end**: booted on the office mobile hotspot with an expired token, QR showed and stayed up, scanned from a phone on that hotspot, pulled a fresh token from the office PC's `.claude/.credentials.json`, submitted it, usage screen appeared. First attempt failed verification — traced to copying the token via Google Lens OCR, which misread a character in the token's high-entropy charset (`l`/`1`/`I`, `O`/`0`, `-`/`_`); a retry moving the text via Gmail (a real copy, not OCR) worked immediately
 - [x] Hardened `TokenWebServer` against this class of bug: strips *all* whitespace from the submitted token (not just leading/trailing, to catch mobile copy-paste hops introducing a stray space/newline) and disables the textarea's `autocapitalize`/`autocorrect`/`spellcheck`, which some mobile browsers apply even to pasted text
+- [x] **Tested the push button's force-refresh in isolation**, cross-checked against a multimeter and Serial monitor: idle voltage on GPIO27 read ~3.1V and dropped to 0V on press, confirming `INPUT_PULLUP` + button-to-GND is wired correctly with no external resistor needed. A momentary press updates the OLED ~3-4 seconds later — this is expected, not a bug: `forceRefresh()` blocks on a real HTTPS round-trip to Anthropic, and `loop()` (and therefore the display) doesn't advance until that call returns
+- [x] **Office trials complete** — beyond the initial end-to-end office test (section above), continued real-world use at the office confirmed the day-to-day workflow (token expiry → QR scan → web UI update → live usage display) holds up, not just as a one-off test
 
 ### In progress 🔧
 
 - [ ] Cleaning up VS Code IntelliSense false-positive red errors — these are cosmetic only and never affected real compiles/flashes, but currently being resolved properly via `arduino-cli compile --only-compilation-database` generating a `compile_commands.json`, referenced from `c_cpp_properties.json`
 
-### Not yet started
+### Not yet started (polish, not core functionality)
 
 - [ ] Confirm WiFi reconnect behavior if the office hotspot drops mid-run (phone screen lock / battery saver killing the hotspot is a known real-world risk, not a code issue)
-- [ ] Test the push button's force-refresh in isolation (code exists in `claude_meter.ino`, not yet specifically exercised)
-- [ ] Full integration test: extended run to see how the token-refresh cadence feels in practice day-to-day, and observe the staleness indicator behavior when a fetch fails
 - [ ] Migration from breadboard to a permanent build (perfboard or PCB)
 
 ---
@@ -239,8 +241,8 @@ Substitute `claude_meter` for `oled_test` (or vice versa) depending which sketch
 
 ## 7. Next Steps (in likely order)
 
+Core functionality is done and validated (see section 4). What's left is optional polish:
+
 1. Confirm WiFi reconnect behavior holds up if the office hotspot drops (phone screen lock / battery saver)
-2. Test the push button's force-refresh in isolation
-3. Live with it long enough to judge whether the token-refresh cadence is actually low-friction enough day to day
-4. Finish clearing the IntelliSense squiggles (cosmetic, low priority — can be skipped if it becomes a time sink)
-5. Once the breadboard prototype survives normal daily use, plan the move to a permanent build
+2. Finish clearing the IntelliSense squiggles (cosmetic, low priority — can be skipped if it becomes a time sink)
+3. Plan the move from breadboard to a permanent build (perfboard or PCB)
